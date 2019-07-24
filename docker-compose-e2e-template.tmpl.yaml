@@ -1,0 +1,125 @@
+# Copyright IBM Corp. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+version: '2'
+
+volumes:
+  orderer.{{ .DOMAIN }}.com:
+  peer0.{{ .ORG1_NAME }}.{{ .DOMAIN }}.com:
+  peer1.{{ .ORG1_NAME }}.{{ .DOMAIN }}.com:
+  peer0.{{ .ORG2_NAME }}.{{ .DOMAIN }}.com:
+  peer1.{{ .ORG2_NAME }}.{{ .DOMAIN }}.com:
+
+networks:
+  byfn:
+services:
+  ca0:
+    image: hyperledger/fabric-ca:1.4.1
+    environment:
+      - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
+      - FABRIC_CA_SERVER_CA_NAME=ca-{{ .ORG1_NAME }}
+      - FABRIC_CA_SERVER_TLS_ENABLED=true
+      - FABRIC_CA_SERVER_TLS_CERTFILE=/etc/hyperledger/fabric-ca-server-config/ca.{{ .ORG1_NAME }}.{{ .DOMAIN }}.com-cert.pem
+      - FABRIC_CA_SERVER_TLS_KEYFILE=/etc/hyperledger/fabric-ca-server-config/CA1_PRIVATE_KEY
+    ports:
+      - "7054:7054"
+    command: sh -c 'fabric-ca-server start --ca.certfile /etc/hyperledger/fabric-ca-server-config/ca.{{ .ORG1_NAME }}.{{ .DOMAIN }}.com-cert.pem --ca.keyfile /etc/hyperledger/fabric-ca-server-config/CA1_PRIVATE_KEY -b admin:adminpw -d'
+    volumes:
+      - ./crypto-config/peerOrganizations/{{ .ORG1_NAME }}.{{ .DOMAIN }}.com/ca/:/etc/hyperledger/fabric-ca-server-config
+    container_name: ca_peer{{ .ORG1_NAME }}
+    networks:
+      - byfn
+
+  ca1:
+    image: hyperledger/fabric-ca:1.4.1
+    environment:
+      - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
+      - FABRIC_CA_SERVER_CA_NAME=ca-{{ .ORG2_NAME }}
+      - FABRIC_CA_SERVER_TLS_ENABLED=true
+      - FABRIC_CA_SERVER_TLS_CERTFILE=/etc/hyperledger/fabric-ca-server-config/ca.{{ .ORG2_NAME }}.{{ .DOMAIN }}.com-cert.pem
+      - FABRIC_CA_SERVER_TLS_KEYFILE=/etc/hyperledger/fabric-ca-server-config/CA2_PRIVATE_KEY
+    ports:
+      - "8054:7054"
+    command: sh -c 'fabric-ca-server start --ca.certfile /etc/hyperledger/fabric-ca-server-config/ca.{{ .ORG2_NAME }}.{{ .DOMAIN }}.com-cert.pem --ca.keyfile /etc/hyperledger/fabric-ca-server-config/CA2_PRIVATE_KEY -b admin:adminpw -d'
+    volumes:
+      - ./crypto-config/peerOrganizations/{{ .ORG2_NAME }}.{{ .DOMAIN }}.com/ca/:/etc/hyperledger/fabric-ca-server-config
+    container_name: ca_peer{{ .ORG2_NAME }}
+    networks:
+      - byfn
+
+  orderer.{{ .DOMAIN }}.com:
+    extends:
+      file:   base/docker-compose-base.yaml
+      service: orderer.{{ .DOMAIN }}.com
+    container_name: orderer.{{ .DOMAIN }}.com
+    networks:
+      - byfn
+
+  peer0.{{ .ORG1_NAME }}.{{ .DOMAIN }}.com:
+    container_name: peer0.{{ .ORG1_NAME }}.{{ .DOMAIN }}.com
+    extends:
+      file:  base/docker-compose-base.yaml
+      service: peer0.{{ .ORG1_NAME }}.{{ .DOMAIN }}.com
+    networks:
+      - byfn
+
+  cli:
+    container_name: cli
+    image: hyperledger/fabric-tools:1.4.1
+    tty: true
+    stdin_open: true
+    environment:
+      - GOPATH=/opt/gopath
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      #- FABRIC_LOGGING_SPEC=DEBUG
+      - FABRIC_LOGGING_SPEC=INFO
+      - CORE_PEER_ID=cli
+      - CORE_PEER_ADDRESS=peer0.{{ .ORG1_NAME }}.{{ .DOMAIN }}.com:7051
+      - CORE_PEER_LOCALMSPID={{ .ORG1_NAME }}MSP
+      - CORE_PEER_TLS_ENABLED=true
+      - CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/{{ .ORG1_NAME }}.{{ .DOMAIN }}.com/peers/peer0.{{ .ORG1_NAME }}.{{ .DOMAIN }}.com/tls/server.crt
+      - CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/{{ .ORG1_NAME }}.{{ .DOMAIN }}.com/peers/peer0.{{ .ORG1_NAME }}.{{ .DOMAIN }}.com/tls/server.key
+      - CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/{{ .ORG1_NAME }}.{{ .DOMAIN }}.com/peers/peer0.{{ .ORG1_NAME }}.{{ .DOMAIN }}.com/tls/ca.crt
+      - CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/{{ .ORG1_NAME }}.{{ .DOMAIN }}.com/users/Admin@{{ .ORG1_NAME }}.{{ .DOMAIN }}.com/msp
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    command: /bin/bash
+    volumes:
+        - /var/run/:/host/var/run/
+        - ./../chaincode/:/opt/gopath/src/github.com/chaincode
+        - ./crypto-config:/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/
+        - ./scripts:/opt/gopath/src/github.com/hyperledger/fabric/peer/scripts/
+        - ./channel-artifacts:/opt/gopath/src/github.com/hyperledger/fabric/peer/channel-artifacts
+    depends_on:
+      - orderer.{{ .DOMAIN }}.com
+      - peer0.{{ .ORG1_NAME }}.{{ .DOMAIN }}.com
+      - peer1.{{ .ORG1_NAME }}.{{ .DOMAIN }}.com
+      - peer0.{{ .ORG2_NAME }}.{{ .DOMAIN }}.com
+      - peer1.{{ .ORG2_NAME }}.{{ .DOMAIN }}.com
+    networks:
+      - byfn
+
+  peer1.{{ .ORG1_NAME }}.{{ .DOMAIN }}.com:
+    container_name: peer1.{{ .ORG1_NAME }}.{{ .DOMAIN }}.com
+    extends:
+      file:  base/docker-compose-base.yaml
+      service: peer1.{{ .ORG1_NAME }}.{{ .DOMAIN }}.com
+    networks:
+      - byfn
+
+  peer0.{{ .ORG2_NAME }}.{{ .DOMAIN }}.com:
+    container_name: peer0.{{ .ORG2_NAME }}.{{ .DOMAIN }}.com
+    extends:
+      file:  base/docker-compose-base.yaml
+      service: peer0.{{ .ORG2_NAME }}.{{ .DOMAIN }}.com
+    networks:
+      - byfn
+
+  peer1.{{ .ORG2_NAME }}.{{ .DOMAIN }}.com:
+    container_name: peer1.{{ .ORG2_NAME }}.{{ .DOMAIN }}.com
+    extends:
+      file:  base/docker-compose-base.yaml
+      service: peer1.{{ .ORG2_NAME }}.{{ .DOMAIN }}.com
+    networks:
+      - byfn
