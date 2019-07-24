@@ -1,0 +1,114 @@
+networks:
+  byfn:
+services:
+  ca0:
+    command: sh -c 'fabric-ca-server start --ca.certfile /etc/hyperledger/fabric-ca-server-config/ca.Seller.mytrade.com-cert.pem
+      --ca.keyfile /etc/hyperledger/fabric-ca-server-config/CA1_PRIVATE_KEY -b admin:adminpw
+      -d'
+    container_name: ca_peerSeller
+    environment:
+    - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
+    - FABRIC_CA_SERVER_CA_NAME=ca-Seller
+    - FABRIC_CA_SERVER_TLS_ENABLED=true
+    - FABRIC_CA_SERVER_TLS_CERTFILE=/etc/hyperledger/fabric-ca-server-config/ca.Seller.mytrade.com-cert.pem
+    - FABRIC_CA_SERVER_TLS_KEYFILE=/etc/hyperledger/fabric-ca-server-config/CA1_PRIVATE_KEY
+    image: hyperledger/fabric-ca:1.4.1
+    networks:
+    - byfn
+    ports:
+    - 7054:7054
+    volumes:
+    - ./crypto-config/peerOrganizations/Seller.mytrade.com/ca/:/etc/hyperledger/fabric-ca-server-config
+  ca1:
+    command: sh -c 'fabric-ca-server start --ca.certfile /etc/hyperledger/fabric-ca-server-config/ca.Buyer.mytrade.com-cert.pem
+      --ca.keyfile /etc/hyperledger/fabric-ca-server-config/CA2_PRIVATE_KEY -b admin:adminpw
+      -d'
+    container_name: ca_peerBuyer
+    environment:
+    - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
+    - FABRIC_CA_SERVER_CA_NAME=ca-Buyer
+    - FABRIC_CA_SERVER_TLS_ENABLED=true
+    - FABRIC_CA_SERVER_TLS_CERTFILE=/etc/hyperledger/fabric-ca-server-config/ca.Buyer.mytrade.com-cert.pem
+    - FABRIC_CA_SERVER_TLS_KEYFILE=/etc/hyperledger/fabric-ca-server-config/CA2_PRIVATE_KEY
+    image: hyperledger/fabric-ca:1.4.1
+    networks:
+    - byfn
+    ports:
+    - 8054:7054
+    volumes:
+    - ./crypto-config/peerOrganizations/Buyer.mytrade.com/ca/:/etc/hyperledger/fabric-ca-server-config
+  cli:
+    command: /bin/bash
+    container_name: cli
+    depends_on:
+    - orderer.mytrade.com
+    - peer0.Seller.mytrade.com
+    - peer1.Seller.mytrade.com
+    - peer0.Buyer.mytrade.com
+    - peer1.Buyer.mytrade.com
+    environment:
+    - GOPATH=/opt/gopath
+    - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+    - FABRIC_LOGGING_SPEC=INFO
+    - CORE_PEER_ID=cli
+    - CORE_PEER_ADDRESS=peer0.Seller.mytrade.com:7051
+    - CORE_PEER_LOCALMSPID=SellerMSP
+    - CORE_PEER_TLS_ENABLED=true
+    - CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/Seller.mytrade.com/peers/peer0.Seller.mytrade.com/tls/server.crt
+    - CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/Seller.mytrade.com/peers/peer0.Seller.mytrade.com/tls/server.key
+    - CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/Seller.mytrade.com/peers/peer0.Seller.mytrade.com/tls/ca.crt
+    - CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/Seller.mytrade.com/users/Admin@Seller.mytrade.com/msp
+    image: hyperledger/fabric-tools:1.4.1
+    networks:
+    - byfn
+    stdin_open: true
+    tty: true
+    volumes:
+    - /var/run/:/host/var/run/
+    - ./../chaincode/:/opt/gopath/src/github.com/chaincode
+    - ./crypto-config:/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/
+    - ./scripts:/opt/gopath/src/github.com/hyperledger/fabric/peer/scripts/
+    - ./channel-artifacts:/opt/gopath/src/github.com/hyperledger/fabric/peer/channel-artifacts
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+  orderer.mytrade.com:
+    container_name: orderer.mytrade.com
+    extends:
+      file: base/docker-compose-base.yaml
+      service: orderer.mytrade.com
+    networks:
+    - byfn
+  peer0.Buyer.mytrade.com:
+    container_name: peer0.Buyer.mytrade.com
+    extends:
+      file: base/docker-compose-base.yaml
+      service: peer0.Buyer.mytrade.com
+    networks:
+    - byfn
+  peer0.Seller.mytrade.com:
+    container_name: peer0.Seller.mytrade.com
+    extends:
+      file: base/docker-compose-base.yaml
+      service: peer0.Seller.mytrade.com
+    networks:
+    - byfn
+  peer1.Buyer.mytrade.com:
+    container_name: peer1.Buyer.mytrade.com
+    extends:
+      file: base/docker-compose-base.yaml
+      service: peer1.Buyer.mytrade.com
+    networks:
+    - byfn
+  peer1.Seller.mytrade.com:
+    container_name: peer1.Seller.mytrade.com
+    extends:
+      file: base/docker-compose-base.yaml
+      service: peer1.Seller.mytrade.com
+    networks:
+    - byfn
+version: "2"
+volumes:
+  orderer.mytrade.com:
+  peer0.Buyer.mytrade.com:
+  peer0.Seller.mytrade.com:
+  peer1.Buyer.mytrade.com:
+  peer1.Seller.mytrade.com:
