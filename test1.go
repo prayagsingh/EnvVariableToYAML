@@ -14,12 +14,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// Config struct to store the value
-type Config struct {
-	Environment string `yaml:"environment"`
-	Key         string `yaml:"key"`
-}
-
 // Params :- to store the env variables
 type Params struct {
 	ORDERER_PROFILE string
@@ -138,14 +132,4 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	/*
-		// expand environment variables
-		confContent = []byte(os.ExpandEnv(string(confContent)))
-		conf := &Config{}
-		if err := yaml.Unmarshal(confContent, conf); err != nil {
-			panic(err)
-		}
-		fmt.Printf("config: %v\n", conf)
-	*/
 }
